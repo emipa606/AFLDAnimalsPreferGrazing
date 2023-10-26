@@ -34,3 +34,6 @@ Permissions : Feel free to modify, reupload, etc. in accordance with Rimworld TO
 -  Use https://github.com/RimSort/RimSort/releases/latest]RimSort to sort your mods
 
 
+
+https://steamcommunity.com/sharedfiles/filedetails/changelog/3049783752]![Image](https://img.shields.io/github/v/release/emipa606/AFLDAnimalsPreferGrazing?label=latest%20version&style=plastic&color=9f1111&labelColor=black)
+

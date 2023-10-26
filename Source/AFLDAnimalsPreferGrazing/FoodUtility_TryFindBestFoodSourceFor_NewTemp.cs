@@ -17,7 +17,8 @@ internal static class FoodUtility_TryFindBestFoodSourceFor_NewTemp
             bool calculateWantedStackCount = false)
         {
             var eatsPlants = eater.RaceProps.Eats(FoodTypeFlags.Plant);
-            var eatsCorpses = eater.RaceProps.Eats(FoodTypeFlags.Corpse);
+            var eatsCorpses = _AFLD_AnimalsPreferGrazingMod.instance.Settings.alsoPerferCorpses &&
+                              eater.RaceProps.Eats(FoodTypeFlags.Corpse);
             if (getter != eater || !eater.RaceProps.Animal || !eatsPlants && !eatsCorpses)
             {
                 return true;
