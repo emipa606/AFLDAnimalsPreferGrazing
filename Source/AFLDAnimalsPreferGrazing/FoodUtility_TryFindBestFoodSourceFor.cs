@@ -6,11 +6,10 @@ using Verse.AI;
 
 namespace _AFLD_AnimalsPreferGrazing;
 
-internal static class FoodUtility_TryFindBestFoodSourceFor_NewTemp
+internal static class FoodUtility_TryFindBestFoodSourceFor
 {
-    [HarmonyPatch(typeof(FoodUtility))]
-    [HarmonyPatch("TryFindBestFoodSourceFor_NewTemp")]
-    private static class FoodUtility_TryFindBestFoodSourceFor_NewTempPatch
+    [HarmonyPatch(typeof(FoodUtility), nameof(FoodUtility.TryFindBestFoodSourceFor))]
+    private static class FoodUtility_TryFindBestFoodSourceFor_Patch
     {
         private static bool Prefix(ref bool __result, Pawn getter, Pawn eater, bool forceScanWholeMap,
             bool ignoreReservations, ref Thing foodSource, ref ThingDef foodDef, bool allowForbidden = false,
@@ -35,50 +34,6 @@ internal static class FoodUtility_TryFindBestFoodSourceFor_NewTemp
 
                 var thing = pawn.CurJob.GetTarget(TargetIndex.A).Thing;
                 reserved_plant_or_corpse_filter.Add(thing);
-            }
-
-            bool FoodValidator(Thing t)
-            {
-                var stackCount = 1;
-                var statValue = t.GetStatValue(StatDefOf.Nutrition);
-                if (calculateWantedStackCount)
-                {
-                    stackCount = FoodUtility.WillIngestStackCountOf(eater, t.def, statValue);
-                }
-
-                return eater.WillEat_NewTemp(t, getter) && t.def.IsNutritionGivingIngestible && t.IngestibleNow &&
-                       (getter.AnimalAwareOf(t) || forceScanWholeMap) &&
-                       (ignoreReservations || getter.CanReserve(t, 10, stackCount));
-            }
-
-            bool MiscValidator(Thing t)
-            {
-                if (!FoodValidator(t))
-                {
-                    return false;
-                }
-
-                if (reserved_plant_or_corpse_filter.Contains(t))
-                {
-                    return false;
-                }
-
-                if (!t.IngestibleNow)
-                {
-                    return false;
-                }
-
-                return t.Position.InAllowedArea(getter) && getter.CanReserve(t);
-            }
-
-            bool CorpseValidator(Thing t)
-            {
-                return t is Corpse && MiscValidator(t);
-            }
-
-            bool PlantValidator(Thing t)
-            {
-                return t is Plant && MiscValidator(t);
             }
 
             var ignoreEntirelyForbiddenRegions = !allowForbidden && ForbidUtility.CaresAboutForbidden(getter, true) &&
@@ -127,6 +82,50 @@ internal static class FoodUtility_TryFindBestFoodSourceFor_NewTemp
             foodDef = FoodUtility.GetFinalIngestibleDef(closestIncludingPlants);
             __result = true;
             return false;
+
+            bool FoodValidator(Thing t)
+            {
+                var stackCount = 1;
+                var statValue = t.GetStatValue(StatDefOf.Nutrition);
+                if (calculateWantedStackCount)
+                {
+                    stackCount = FoodUtility.WillIngestStackCountOf(eater, t.def, statValue);
+                }
+
+                return eater.WillEat(t, getter) && t.def.IsNutritionGivingIngestible && t.IngestibleNow &&
+                       (getter.AnimalAwareOf(t) || forceScanWholeMap) &&
+                       (ignoreReservations || getter.CanReserve(t, 10, stackCount));
+            }
+
+            bool MiscValidator(Thing t)
+            {
+                if (!FoodValidator(t))
+                {
+                    return false;
+                }
+
+                if (reserved_plant_or_corpse_filter.Contains(t))
+                {
+                    return false;
+                }
+
+                if (!t.IngestibleNow)
+                {
+                    return false;
+                }
+
+                return t.Position.InAllowedArea(getter) && getter.CanReserve(t);
+            }
+
+            bool CorpseValidator(Thing t)
+            {
+                return t is Corpse && MiscValidator(t);
+            }
+
+            bool PlantValidator(Thing t)
+            {
+                return t is Plant && MiscValidator(t);
+            }
         }
     }
 }

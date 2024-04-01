@@ -1,3 +1,4 @@
+using System.Reflection;
 using HarmonyLib;
 using Verse;
 
@@ -8,6 +9,6 @@ internal static class Main
 {
     static Main()
     {
-        new Harmony("com.afld.animalsprefergrazing").PatchAll();
+        new Harmony("com.afld.animalsprefergrazing").PatchAll(Assembly.GetExecutingAssembly());
     }
 }
