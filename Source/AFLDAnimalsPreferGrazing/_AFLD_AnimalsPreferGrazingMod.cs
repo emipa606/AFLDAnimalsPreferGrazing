@@ -10,7 +10,7 @@ internal class _AFLD_AnimalsPreferGrazingMod : Mod
     /// <summary>
     ///     The instance of the settings to be read by the mod
     /// </summary>
-    public static _AFLD_AnimalsPreferGrazingMod instance;
+    public static _AFLD_AnimalsPreferGrazingMod Instance;
 
     private static string currentVersion;
 
@@ -20,7 +20,7 @@ internal class _AFLD_AnimalsPreferGrazingMod : Mod
     /// <param name="content"></param>
     public _AFLD_AnimalsPreferGrazingMod(ModContentPack content) : base(content)
     {
-        instance = this;
+        Instance = this;
         Settings = GetSettings<_AFLD_AnimalsPreferGrazingSettings>();
         currentVersion = VersionFromManifest.GetVersionFromModMetaData(content.ModMetaData);
     }
@@ -46,17 +46,17 @@ internal class _AFLD_AnimalsPreferGrazingMod : Mod
     /// <param name="rect"></param>
     public override void DoSettingsWindowContents(Rect rect)
     {
-        var listing_Standard = new Listing_Standard();
-        listing_Standard.Begin(rect);
-        listing_Standard.CheckboxLabeled("APG.alsoPerferCorpses".Translate(), ref Settings.alsoPerferCorpses);
+        var listingStandard = new Listing_Standard();
+        listingStandard.Begin(rect);
+        listingStandard.CheckboxLabeled("APG.alsoPerferCorpses".Translate(), ref Settings.AlsoPreferCorpses);
         if (currentVersion != null)
         {
-            listing_Standard.Gap();
+            listingStandard.Gap();
             GUI.contentColor = Color.gray;
-            listing_Standard.Label("APG.modVersion".Translate(currentVersion));
+            listingStandard.Label("APG.modVersion".Translate(currentVersion));
             GUI.contentColor = Color.white;
         }
 
-        listing_Standard.End();
+        listingStandard.End();
     }
 }

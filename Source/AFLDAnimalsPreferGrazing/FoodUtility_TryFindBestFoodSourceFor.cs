@@ -6,126 +6,123 @@ using Verse.AI;
 
 namespace _AFLD_AnimalsPreferGrazing;
 
-internal static class FoodUtility_TryFindBestFoodSourceFor
+[HarmonyPatch(typeof(FoodUtility), nameof(FoodUtility.TryFindBestFoodSourceFor))]
+public static class FoodUtility_TryFindBestFoodSourceFor_Patch
 {
-    [HarmonyPatch(typeof(FoodUtility), nameof(FoodUtility.TryFindBestFoodSourceFor))]
-    private static class FoodUtility_TryFindBestFoodSourceFor_Patch
+    private static bool Prefix(ref bool __result, Pawn getter, Pawn eater, bool forceScanWholeMap,
+        bool ignoreReservations, ref Thing foodSource, ref ThingDef foodDef, bool allowForbidden = false,
+        bool calculateWantedStackCount = false)
     {
-        private static bool Prefix(ref bool __result, Pawn getter, Pawn eater, bool forceScanWholeMap,
-            bool ignoreReservations, ref Thing foodSource, ref ThingDef foodDef, bool allowForbidden = false,
-            bool calculateWantedStackCount = false)
+        var eatsPlants = eater.RaceProps.Eats(FoodTypeFlags.Plant);
+        var eatsCorpses = _AFLD_AnimalsPreferGrazingMod.Instance.Settings.AlsoPreferCorpses &&
+                          eater.RaceProps.Eats(FoodTypeFlags.Corpse);
+        if (getter != eater || !eater.RaceProps.Animal || !eatsPlants && !eatsCorpses)
         {
-            var eatsPlants = eater.RaceProps.Eats(FoodTypeFlags.Plant);
-            var eatsCorpses = _AFLD_AnimalsPreferGrazingMod.instance.Settings.alsoPerferCorpses &&
-                              eater.RaceProps.Eats(FoodTypeFlags.Corpse);
-            if (getter != eater || !eater.RaceProps.Animal || !eatsPlants && !eatsCorpses)
+            return true;
+        }
+
+        var reservedPlantOrCorpseFilter = new HashSet<Thing>();
+        foreach (var item in GenRadial.RadialDistinctThingsAround(getter.Position, getter.Map, 2f, true))
+        {
+            if (item is not Pawn pawn || pawn == getter || !pawn.RaceProps.Animal || pawn.CurJob == null ||
+                pawn.CurJob.def != JobDefOf.Ingest || !pawn.CurJob.GetTarget(TargetIndex.A).HasThing)
             {
-                return true;
+                continue;
             }
 
-            var reserved_plant_or_corpse_filter = new HashSet<Thing>();
-            foreach (var item in GenRadial.RadialDistinctThingsAround(getter.Position, getter.Map, 2f, true))
-            {
-                if (item is not Pawn pawn || pawn == getter || !pawn.RaceProps.Animal || pawn.CurJob == null ||
-                    pawn.CurJob.def != JobDefOf.Ingest || !pawn.CurJob.GetTarget(TargetIndex.A).HasThing)
-                {
-                    continue;
-                }
+            var thing = pawn.CurJob.GetTarget(TargetIndex.A).Thing;
+            reservedPlantOrCorpseFilter.Add(thing);
+        }
 
-                var thing = pawn.CurJob.GetTarget(TargetIndex.A).Thing;
-                reserved_plant_or_corpse_filter.Add(thing);
-            }
+        var ignoreEntirelyForbiddenRegions = !allowForbidden && ForbidUtility.CaresAboutForbidden(getter, true) &&
+                                             getter.playerSettings is
+                                                 { EffectiveAreaRestrictionInPawnCurrentMap: not null };
+        var searchRegionsMax = 30;
+        if (forceScanWholeMap)
+        {
+            searchRegionsMax = -1;
+        }
+        else if (getter.Faction == Faction.OfPlayer)
+        {
+            searchRegionsMax = 100;
+        }
 
-            var ignoreEntirelyForbiddenRegions = !allowForbidden && ForbidUtility.CaresAboutForbidden(getter, true) &&
-                                                 getter.playerSettings is
-                                                     { EffectiveAreaRestrictionInPawnCurrentMap: not null };
-            var searchRegionsMax = 30;
-            if (forceScanWholeMap)
-            {
-                searchRegionsMax = -1;
-            }
-            else if (getter.Faction == Faction.OfPlayer)
-            {
-                searchRegionsMax = 100;
-            }
-
-            if (eatsCorpses)
-            {
-                var closestIncludingCorpses = GenClosest.ClosestThingReachable(getter.Position, getter.Map,
-                    ThingRequest.ForGroup(ThingRequestGroup.FoodSource), PathEndMode.OnCell,
-                    TraverseParms.For(getter), 9999f, CorpseValidator, null, 0, searchRegionsMax, false,
-                    RegionType.Set_Passable, ignoreEntirelyForbiddenRegions);
-                if (closestIncludingCorpses != null)
-                {
-                    foodSource = closestIncludingCorpses;
-                    foodDef = FoodUtility.GetFinalIngestibleDef(closestIncludingCorpses);
-                    __result = true;
-                    return false;
-                }
-            }
-
-            if (!eatsPlants)
-            {
-                return true;
-            }
-
-            var closestIncludingPlants = GenClosest.ClosestThingReachable(getter.Position, getter.Map,
+        if (eatsCorpses)
+        {
+            var closestIncludingCorpses = GenClosest.ClosestThingReachable(getter.Position, getter.Map,
                 ThingRequest.ForGroup(ThingRequestGroup.FoodSource), PathEndMode.OnCell,
-                TraverseParms.For(getter), 9999f, PlantValidator, null, 0, searchRegionsMax, false,
+                TraverseParms.For(getter), 9999f, corpseValidator, null, 0, searchRegionsMax, false,
                 RegionType.Set_Passable, ignoreEntirelyForbiddenRegions);
-            if (closestIncludingPlants == null)
+            if (closestIncludingCorpses != null)
             {
-                return true;
+                foodSource = closestIncludingCorpses;
+                foodDef = FoodUtility.GetFinalIngestibleDef(closestIncludingCorpses);
+                __result = true;
+                return false;
+            }
+        }
+
+        if (!eatsPlants)
+        {
+            return true;
+        }
+
+        var closestIncludingPlants = GenClosest.ClosestThingReachable(getter.Position, getter.Map,
+            ThingRequest.ForGroup(ThingRequestGroup.FoodSource), PathEndMode.OnCell,
+            TraverseParms.For(getter), 9999f, plantValidator, null, 0, searchRegionsMax, false,
+            RegionType.Set_Passable, ignoreEntirelyForbiddenRegions);
+        if (closestIncludingPlants == null)
+        {
+            return true;
+        }
+
+        foodSource = closestIncludingPlants;
+        foodDef = FoodUtility.GetFinalIngestibleDef(closestIncludingPlants);
+        __result = true;
+        return false;
+
+        bool foodValidator(Thing t)
+        {
+            var stackCount = 1;
+            var statValue = t.GetStatValue(StatDefOf.Nutrition);
+            if (calculateWantedStackCount)
+            {
+                stackCount = FoodUtility.WillIngestStackCountOf(eater, t.def, statValue);
             }
 
-            foodSource = closestIncludingPlants;
-            foodDef = FoodUtility.GetFinalIngestibleDef(closestIncludingPlants);
-            __result = true;
-            return false;
+            return eater.WillEat(t, getter) && t.def.IsNutritionGivingIngestible && t.IngestibleNow &&
+                   (getter.AnimalAwareOf(t) || forceScanWholeMap) &&
+                   (ignoreReservations || getter.CanReserve(t, 10, stackCount));
+        }
 
-            bool FoodValidator(Thing t)
+        bool miscValidator(Thing t)
+        {
+            if (!foodValidator(t))
             {
-                var stackCount = 1;
-                var statValue = t.GetStatValue(StatDefOf.Nutrition);
-                if (calculateWantedStackCount)
-                {
-                    stackCount = FoodUtility.WillIngestStackCountOf(eater, t.def, statValue);
-                }
-
-                return eater.WillEat(t, getter) && t.def.IsNutritionGivingIngestible && t.IngestibleNow &&
-                       (getter.AnimalAwareOf(t) || forceScanWholeMap) &&
-                       (ignoreReservations || getter.CanReserve(t, 10, stackCount));
+                return false;
             }
 
-            bool MiscValidator(Thing t)
+            if (reservedPlantOrCorpseFilter.Contains(t))
             {
-                if (!FoodValidator(t))
-                {
-                    return false;
-                }
-
-                if (reserved_plant_or_corpse_filter.Contains(t))
-                {
-                    return false;
-                }
-
-                if (!t.IngestibleNow)
-                {
-                    return false;
-                }
-
-                return t.Position.InAllowedArea(getter) && getter.CanReserve(t);
+                return false;
             }
 
-            bool CorpseValidator(Thing t)
+            if (!t.IngestibleNow)
             {
-                return t is Corpse && MiscValidator(t);
+                return false;
             }
 
-            bool PlantValidator(Thing t)
-            {
-                return t is Plant && MiscValidator(t);
-            }
+            return t.Position.InAllowedArea(getter) && getter.CanReserve(t);
+        }
+
+        bool corpseValidator(Thing t)
+        {
+            return t is Corpse && miscValidator(t);
+        }
+
+        bool plantValidator(Thing t)
+        {
+            return t is Plant && miscValidator(t);
         }
     }
 }
