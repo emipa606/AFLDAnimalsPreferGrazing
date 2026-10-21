@@ -9,7 +9,7 @@ namespace _AFLD_AnimalsPreferGrazing;
 [HarmonyPatch(typeof(FoodUtility), nameof(FoodUtility.TryFindBestFoodSourceFor))]
 public static class FoodUtility_TryFindBestFoodSourceFor_Patch
 {
-    private static bool Prefix(ref bool __result, Pawn getter, Pawn eater, bool forceScanWholeMap,
+    public static bool Prefix(ref bool __result, Pawn getter, Pawn eater, bool forceScanWholeMap,
         bool ignoreReservations, ref Thing foodSource, ref ThingDef foodDef, bool allowForbidden = false,
         bool calculateWantedStackCount = false)
     {
